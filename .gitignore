@@ -1,0 +1,11 @@
+# local files
+.DS_Store
+models/.venv/
+.Rproj.user/
+
+# large image files
+materials/
+writeups/
+
+# misc
+IRB/
