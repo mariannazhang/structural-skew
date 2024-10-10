@@ -1,10 +1,11 @@
 # local files
-.DS_Store
 models/.venv/
 .Rproj.user/
 
 # large image files
-materials/
+materials/images/
+materials/Study_1a_design.pptx
+materials/Study_1a_stimuli.key
 writeups/
 
 # misc
