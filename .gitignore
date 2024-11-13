@@ -1,11 +1,10 @@
 # local files
 models/.venv/
+models/.venv-marianna-laptop/
 .Rproj.user/
 
 # large image files
-materials/images/
-materials/Study_1a_design.pptx
-materials/Study_1a_stimuli.key
+materials/
 writeups/
 
 # misc

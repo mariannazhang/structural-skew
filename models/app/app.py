@@ -10,18 +10,31 @@ import pandas as pd
 # import packages for plotting
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.colors import LogNorm
 
 # page title
 st.title("Threshold adjustment model")
 
 # set up sidebar
 with st.sidebar:
+    support_step = st.selectbox('''**Discretization step size**  
+                                (smaller step = finer-grained predictions, slower runtime)''', options = (0.25, 0.5, 1), index = 2)
+    
+    st.write("# Model posterior on Zarpie height (eq. 1)")
     st.latex("P(\mu|z, t, \epsilon) \propto P(z|t, \epsilon, \mu) P(\mu)")
     
-    with st.expander("Filter parameters (Study 1a)", expanded = True):
+    st.write("# Likelihood of observing sample (eq. 2)")
+    st.latex("P(z_i|t, \epsilon, \mu) \propto \mathcal{N}(z_i|\mu, \sigma) f(z_i|t, \epsilon)")
+    
+    
+    st.write("# Study 1a parameters")
+    
+    with st.expander("**Filter parameters**", expanded = True):
         boat_height_range = st.slider("Filter threshold ($t$) (boat height)", 0, 15, value=[5, 10]) 
-
-    with st.expander("Sample ($z$)"):
+        
+    st.write("# Additional parameters")
+    
+    with st.expander("**Sample ($z$) parameters**"):
         zarpie_height_1 = st.slider("Zarpie height 1 ($z_1$)", 1, 15, 4)
         zarpie_height_2 = st.slider("Zarpie height 2 ($z_2$)", 1, 15, 5)
         zarpie_height_3 = st.slider("Zarpie height 3 ($z_3$)", 1, 15, 6)
@@ -29,16 +42,20 @@ with st.sidebar:
         zarpie_height_5 = st.slider("Zarpie height 5 ($z_5$)", 1, 15, 7)
         zarpie_height_6 = st.slider("Zarpie height 6 ($z_6$)", 1, 15, 8)
 
-    with st.expander("Prior ($P(\mu)$)"):
+    with st.expander("**Prior ($P(\mu)$) parameters**"):
         pop_mean_prior_mean = st.slider("Prior on population mean ($P(\mu)$), mean", 1, 15, 10)
-        pop_mean_prior_sd = st.slider("Prior on population mean ($P(\mu)$), SD", 1, 8, 5)
-        pop_sd = st.slider("Prior on population SD", 1, 8, 2)
+        pop_mean_prior_sd = st.slider("Prior on population mean ($P(\mu)$), SD", 1, 5, 5)
+        pop_sd = st.slider("Prior on population SD", 1, 5, 1)
+    
+    st.write("# Filter (eq. 3)")
     
     st.latex("f(z_i|t, \epsilon)=\epsilon + \\frac{1-\epsilon}{1+e^{-k(t-z_i)}}")
     
-    with st.expander("Filter"):
-        pass_prob = st.slider("Filter strength ($\epsilon$) (pass-through rate when above threshold)", 0.0, 1.0, 0.1)
-        k = st.slider("Filter steepness ($k$)", 0.0, 5.0, 1.0, 0.1)
+    with st.expander("**Filter parameters**"):
+        pass_prob = st.slider('''Filter strength ($\epsilon$)  
+                              (pass-through rate when above threshold)''', 0.0, 1.0, 0.1)
+        k = st.slider('''Filter steepness ($k$)  
+                      (lower $k$ = flatter, higher $k$ = steeper, step-like)''', 0.0, 100.0, 100.0, 0.1)
 
 
 
@@ -47,7 +64,7 @@ with st.sidebar:
 @keep_deterministic
 def discretized_gaussian(mean, sd, support=None):
     if support is None:
-        support = list(np.arange(-20+mean, 20+mean, step=.25)) # step needs to be 1, .5, or .25
+        support = list(np.arange(-20+mean, 20+mean, step=support_step)) # step needs to be 1, .5, or .25
     return Categorical.from_continuous(
         Gaussian(mean, sd),
         support=support # restrict range to make inference easier
@@ -119,13 +136,53 @@ for boat_height in np.arange(boat_height_range[0], boat_height_range[1], 1):
 threshold_adjustment_res_df = pd.DataFrame(threshold_adjustment_res_list)
 
 # make plot
-g = sns.relplot(data = threshold_adjustment_res_df,
+g1 = sns.relplot(data = threshold_adjustment_res_df,
                 x = "value",
                 y = "prob",
                 hue = "boat_height",
                 kind = "line") 
-g.set_ylabels("posterior probability")
-plt.ylim(0, 0.25)
-g.set_xlabels("Zarpie height")
 plt.xlim(0, 15)
-st.pyplot(g)
+g1.set_ylabels("posterior probability")
+g1.set_xlabels("Zarpie height")
+st.pyplot(g1)
+
+
+
+
+
+
+
+# filter plot
+boarding_prob_list = []
+
+# look at the stated range of boat heights, look at all possible zarpie heights
+for boat_height in np.arange(boat_height_range[0], boat_height_range[1], 1):
+    for zarpie_height in np.arange(1, 15):
+        # run the logistic filter for boat height = 6
+        boarding_prob = logistic_filter(zarpie_height = zarpie_height, boat_height = boat_height, pass_prob = pass_prob, k = k)
+        boarding_prob_list.append(dict(
+            zarpie_height = zarpie_height,
+            boat_height = boat_height,
+            pass_prob = pass_prob,
+            k = k,
+            boarding_prob = boarding_prob
+        ))
+            
+# convert to df
+boarding_prob_df = pd.DataFrame(boarding_prob_list)
+
+g2 = sns.relplot(data = boarding_prob_df,
+                 x = "zarpie_height",
+                 y = "boarding_prob",
+                 hue = "boat_height",
+                 kind = "line")
+g2.set_ylabels("boarding probability")
+plt.ylim(0, 1)
+g2.set_xlabels("Zarpie height")
+plt.xlim(0, 15)
+# g.figure.suptitle(f"Logistic filter (pass-through prob: {pass_prob}, k: {k})")
+plt.title(f"Logistic filter \n(pass-through prob: {pass_prob}, k: {k})")
+# g.figure.subplots_adjust(top = 0.9)
+st.pyplot(g2)
+
+# add simple model plot
