@@ -5,7 +5,9 @@ models/.venv-marianna-laptop/
 
 # large image files
 materials/
-writeups/
+.pptx
+.key
+*qr_code.png
 
 # misc
 IRB/
